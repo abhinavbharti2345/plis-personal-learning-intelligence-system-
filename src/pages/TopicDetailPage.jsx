@@ -161,9 +161,9 @@ const TopicDetailPage = () => {
           </div>
           <div className="flex gap-2 flex-shrink-0">
             <button
-              onClick={() => navigate(`/chat/${id}`)}
+              onClick={() => navigate('/discuss')}
               className="btn-secondary text-sm px-3"
-              title="Open topic chat"
+              title="Open discuss space"
             >
               <RiMessage3Line size={16} />
             </button>

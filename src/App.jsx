@@ -16,8 +16,7 @@ import TopicDetailPage from './pages/TopicDetailPage';
 import BrainViewPage   from './pages/BrainViewPage';
 import PlannerPage     from './pages/PlannerPage';
 import ReflectionPage  from './pages/ReflectionPage';
-import ChatPage        from './pages/ChatPage';
-import FriendsPage     from './pages/FriendsPage';
+import DiscussPage     from './pages/DiscussPage';
 import ProfilePage     from './pages/ProfilePage';
 import SettingsPage    from './pages/SettingsPage';
 
@@ -56,8 +55,7 @@ const App = () => {
                   <Route path="/brain"     element={<ProtectedRoute><BrainViewPage /></ProtectedRoute>} />
                   <Route path="/planner"   element={<ProtectedRoute><PlannerPage /></ProtectedRoute>} />
                   <Route path="/reflection" element={<ProtectedRoute><ReflectionPage /></ProtectedRoute>} />
-                  <Route path="/chat/:topicId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-                  <Route path="/friends"   element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
+                  <Route path="/discuss"   element={<ProtectedRoute><DiscussPage /></ProtectedRoute>} />
                   <Route path="/profile"   element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                   <Route path="/settings"  element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
 

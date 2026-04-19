@@ -109,7 +109,7 @@ const ChatPage = () => {
           <h1 className="text-xl font-extrabold text-gray-100 flex items-center gap-2">
             <RiMessage3Line className="text-accent-cyan" />
             {isStudyGroup
-              ? (selectedFriend ? `${selectedFriend.displayName} — Chat` : 'Study Groups — Chat')
+              ? (selectedFriend ? `${selectedFriend.displayName} — Chat` : 'Discussions — Chat')
               : (topic ? `${topic.title} — Chat` : 'General — Chat')}
           </h1>
           <p className="text-xs text-gray-500">

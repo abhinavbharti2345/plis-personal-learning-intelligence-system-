@@ -1,29 +1,31 @@
-// chatService.js — Firebase Realtime DB for topic-based chat
-import { ref, push, onChildAdded, off, serverTimestamp } from 'firebase/database';
+// chatService.js — Firebase Realtime DB for discussion chat
+import { ref, push, set, onChildAdded, off, serverTimestamp } from 'firebase/database';
 import { rtdb } from './firebase';
 
 /**
- * Send a chat message to a topic's chat room.
+ * Send a chat message to a discussion room.
  */
-export const sendMessage = async (topicId, { uid, displayName, text }) => {
-  const chatRef = ref(rtdb, `chats/${topicId}`);
-  await push(chatRef, {
-    uid,
-    displayName,
-    text,
-    timestamp: serverTimestamp(),
+export const sendMessage = async (chatId, payload) => {
+  const messagesRef = ref(rtdb, `chats/${chatId}/messages`);
+  const messageRef = push(messagesRef);
+  await set(messageRef, {
+    id: messageRef.key,
+    senderId: payload.senderId || payload.uid,
+    displayName: payload.displayName,
+    text: payload.text,
+    createdAt: serverTimestamp(),
   });
 };
 
 /**
- * Subscribe to new messages for a topic.
+ * Subscribe to new messages for a discussion room.
  * @returns cleanup function
  */
-export const subscribeToChat = (topicId, callback) => {
-  const chatRef = ref(rtdb, `chats/${topicId}`);
+export const subscribeToChat = (chatId, callback) => {
+  const messagesRef = ref(rtdb, `chats/${chatId}/messages`);
   const handler = (snapshot) => {
     callback({ id: snapshot.key, ...snapshot.val() });
   };
-  onChildAdded(chatRef, handler);
-  return () => off(chatRef, 'child_added', handler);
+  onChildAdded(messagesRef, handler);
+  return () => off(messagesRef, 'child_added', handler);
 };

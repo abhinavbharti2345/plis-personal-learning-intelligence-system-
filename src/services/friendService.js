@@ -4,6 +4,7 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   doc,
   setDoc,
   onSnapshot,
@@ -42,46 +43,7 @@ export const searchUserByEmail = async (email) => {
  * @returns {Promise<void>}
  */
 export const addFriend = async (currentUserUid, targetUser) => {
-  try {
-    // Prevent adding yourself
-    if (currentUserUid === targetUser.uid) {
-      throw new Error('You cannot add yourself as a friend');
-    }
-
-    // Check if already friends
-    const friendRef = doc(db, `friends/${currentUserUid}/friendsList/${targetUser.uid}`);
-    const friendSnapshot = await getDocs(query(collection(db, `friends/${currentUserUid}/friendsList`), where('uid', '==', targetUser.uid)));
-    
-    if (!friendSnapshot.empty) {
-      throw new Error('Already friends with this user');
-    }
-
-    // Add friend to current user's list
-    await setDoc(
-      doc(db, `friends/${currentUserUid}/friendsList/${targetUser.uid}`),
-      {
-        uid: targetUser.uid,
-        email: targetUser.email,
-        displayName: targetUser.displayName,
-        addedAt: new Date().toISOString(),
-      }
-    );
-
-    // Add current user to target user's friend list
-    await setDoc(
-      doc(db, `friends/${targetUser.uid}/friendsList/${currentUserUid}`),
-      {
-        uid: currentUserUid,
-        email: targetUser.email, // This should be current user's email, but we need to fetch it
-        displayName: targetUser.displayName, // This should be current user's name
-        addedAt: new Date().toISOString(),
-      }
-    );
-
-  } catch (error) {
-    console.error('Error adding friend:', error);
-    throw error;
-  }
+  return addFriendBidirectional(currentUserUid, await getUserData(currentUserUid), targetUser);
 };
 
 /**
@@ -99,35 +61,32 @@ export const addFriendBidirectional = async (currentUserUid, currentUserData, ta
     }
 
     // Check if already friends
-    const friendSnapshot = await getDocs(
-      query(
-        collection(db, `friends/${currentUserUid}/friendsList`),
-        where('uid', '==', targetUser.uid)
-      )
-    );
-    
-    if (!friendSnapshot.empty) {
+    const existingFriendDoc = await getDoc(doc(db, 'users', currentUserUid, 'friends', targetUser.uid));
+
+    if (existingFriendDoc.exists()) {
       throw new Error('Already friends with this user');
     }
 
     // Add target user to current user's friend list
     await setDoc(
-      doc(db, `friends/${currentUserUid}/friendsList/${targetUser.uid}`),
+      doc(db, 'users', currentUserUid, 'friends', targetUser.uid),
       {
         uid: targetUser.uid,
         email: targetUser.email,
         displayName: targetUser.displayName,
+        status: 'offline',
         addedAt: new Date().toISOString(),
       }
     );
 
     // Add current user to target user's friend list
     await setDoc(
-      doc(db, `friends/${targetUser.uid}/friendsList/${currentUserUid}`),
+      doc(db, 'users', targetUser.uid, 'friends', currentUserUid),
       {
         uid: currentUserUid,
         email: currentUserData.email,
         displayName: currentUserData.displayName,
+        status: 'offline',
         addedAt: new Date().toISOString(),
       }
     );
@@ -147,7 +106,7 @@ export const addFriendBidirectional = async (currentUserUid, currentUserData, ta
 export const subscribeToFriends = (uid, callback) => {
   try {
     const unsubscribe = onSnapshot(
-      collection(db, `friends/${uid}/friendsList`),
+      collection(db, 'users', uid, 'friends'),
       (snapshot) => {
         const friends = [];
         snapshot.forEach((doc) => {
@@ -177,18 +136,15 @@ export const subscribeToFriends = (uid, callback) => {
  */
 export const getUserData = async (uid) => {
   try {
-    const userDocSnapshot = await getDocs(
-      query(collection(db, 'users'), where('uid', '==', uid))
-    );
-    
-    if (userDocSnapshot.empty) {
+    const userDocSnapshot = await getDoc(doc(db, 'users', uid));
+
+    if (!userDocSnapshot.exists()) {
       return null;
     }
-    
-    const userDoc = userDocSnapshot.docs[0];
+
     return {
-      uid: userDoc.id,
-      ...userDoc.data(),
+      uid: userDocSnapshot.id,
+      ...userDocSnapshot.data(),
     };
   } catch (error) {
     console.error('Error getting user data:', error);

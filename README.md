@@ -429,9 +429,9 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 📧 Contact
 
-- **Email**: your.email@example.com
-- **Twitter**: [@yourusername](https://twitter.com/yourusername)
-- **GitHub**: [@yourusername](https://github.com/yourusername)
+- **Email**: abhinavbharti2345@gmail.com
+- **Linkedin**: [@abhinav-bharti](https://www.linkedin.com/in/abhinav-bharti-860507368/)
+- **GitHub**: [@abhinavbharti2345 ](https://github.com/abhinavbharti2345)
 
 ---
 

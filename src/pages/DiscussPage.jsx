@@ -375,7 +375,7 @@ const DiscussPage = () => {
 
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,7fr)_minmax(300px,3fr)] gap-3 flex-1 min-h-0 w-full transition-all duration-300 ease-in-out">
                 <div className="rounded-xl border border-white/30 dark:border-white/10 overflow-hidden min-h-[420px] h-full w-full flex bg-white">
-                  <Whiteboard />
+                  <Whiteboard roomId={activeChatId} />
                 </div>
 
                 <div className="card p-0 flex flex-col min-h-[420px] h-full overflow-hidden">

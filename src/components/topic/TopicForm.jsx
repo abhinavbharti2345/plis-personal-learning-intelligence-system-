@@ -1,5 +1,5 @@
 // TopicForm.jsx — Create/Edit topic modal form
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useTopics } from '../../context/TopicContext';
 import toast from 'react-hot-toast';
 
@@ -8,6 +8,22 @@ const STATUS_OPTIONS = [
   { value: 'learning',    label: 'Learning',    dot: 'bg-accent-amber' },
   { value: 'strong',      label: 'Strong',      dot: 'bg-accent-green' },
 ];
+
+const formatStatusLabel = (value) => {
+  if (!value) return 'Not Started';
+  return String(value)
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+};
+
+const toStatusValue = (input) => {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/^_+|_+$/g, '');
+};
 
 const TopicForm = ({ onClose, editTopic = null, defaultParentId = null }) => {
   const { addTopic, editTopic: updateTopic, topics } = useTopics();
@@ -20,8 +36,44 @@ const TopicForm = ({ onClose, editTopic = null, defaultParentId = null }) => {
     tags:        editTopic?.tags?.join(', ') || '',
   });
   const [saving, setSaving] = useState(false);
+  const [customStatusInput, setCustomStatusInput] = useState('');
+
+  const statusOptions = useMemo(() => {
+    const map = new Map(STATUS_OPTIONS.map((item) => [item.value, item]));
+
+    topics.forEach((topic) => {
+      const status = toStatusValue(topic.status);
+      if (!status || map.has(status)) return;
+      map.set(status, {
+        value: status,
+        label: formatStatusLabel(status),
+        dot: 'bg-slate-400',
+      });
+    });
+
+    const current = toStatusValue(form.status);
+    if (current && !map.has(current)) {
+      map.set(current, {
+        value: current,
+        label: formatStatusLabel(current),
+        dot: 'bg-slate-400',
+      });
+    }
+
+    return Array.from(map.values());
+  }, [topics, form.status]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const handleAddCustomStatus = () => {
+    const status = toStatusValue(customStatusInput);
+    if (!status) {
+      toast.error('Enter a valid custom status name');
+      return;
+    }
+    setForm((f) => ({ ...f, status }));
+    setCustomStatusInput('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,13 +154,13 @@ const TopicForm = ({ onClose, editTopic = null, defaultParentId = null }) => {
       {/* Status */}
       <div>
         <label className="block text-xs font-medium text-gray-400 mb-1.5">Status</label>
-        <div className="flex gap-2">
-          {STATUS_OPTIONS.map((s) => (
+        <div className="flex flex-wrap gap-2">
+          {statusOptions.map((s) => (
             <button
               key={s.value}
               type="button"
               onClick={() => setForm((f) => ({ ...f, status: s.value }))}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
                 form.status === s.value
                   ? 'border-brand-500 bg-brand-500/20 text-brand-300'
                   : 'border-white/10 text-gray-400 hover:border-white/20'
@@ -118,6 +170,22 @@ const TopicForm = ({ onClose, editTopic = null, defaultParentId = null }) => {
               {s.label}
             </button>
           ))}
+        </div>
+
+        <div className="flex items-center gap-2 mt-2">
+          <input
+            className="input !h-8 !text-xs"
+            placeholder="Custom status name"
+            value={customStatusInput}
+            onChange={(e) => setCustomStatusInput(e.target.value)}
+          />
+          <button
+            type="button"
+            className="btn-secondary !h-8 !px-3 !py-1 !text-xs !font-medium whitespace-nowrap !rounded-lg"
+            onClick={handleAddCustomStatus}
+          >
+            Add Custom Status
+          </button>
         </div>
       </div>
 

@@ -34,10 +34,10 @@ const Sidebar = ({ collapsed = false }) => {
   };
 
   return (
-    <aside className={`${collapsed ? 'w-20' : 'w-64'} h-full flex flex-col bg-[rgba(255,255,255,0.7)] dark:bg-surface-800/35 backdrop-blur-xl border-r border-[rgba(255,255,255,0.8)] dark:border-white/15 shadow-[0_8px_32px_rgba(31,38,135,0.08)] dark:shadow-none shrink-0 transition-all duration-300 ease-in-out`}>
+    <aside className={`${collapsed ? 'w-20' : 'w-64'} h-full flex flex-col bg-[rgba(244,239,231,0.86)] dark:bg-surface-800/35 backdrop-blur-xl border-r border-[rgba(224,214,199,0.9)] dark:border-white/15 shadow-[0_8px_32px_rgba(31,38,135,0.08)] dark:shadow-none shrink-0 transition-all duration-300 ease-in-out`}>
       {/* Header Logo */}
-      <div className={`${collapsed ? 'justify-center px-3' : 'gap-3 px-6'} flex items-center py-6 font-bold tracking-tight text-[#1F2937] dark:text-white border-b border-[rgba(255,255,255,0.8)] dark:border-white/10 transition-all duration-300 ease-in-out`}>
-        <div className="w-8 h-8 rounded-xl overflow-hidden bg-white/70 dark:bg-white/10 flex flex-shrink-0 items-center justify-center shadow-glow-brand ring-1 ring-white/30 dark:ring-white/15">
+      <div className={`${collapsed ? 'justify-center px-3' : 'gap-3 px-6'} flex items-center py-6 font-bold tracking-tight text-[#1F2937] dark:text-white border-b border-[rgba(224,214,199,0.9)] dark:border-white/10 transition-all duration-300 ease-in-out`}>
+        <div className="w-8 h-8 rounded-xl overflow-hidden bg-[rgba(241,234,223,0.9)] dark:bg-white/10 flex flex-shrink-0 items-center justify-center shadow-glow-brand ring-1 ring-[rgba(221,210,193,0.65)] dark:ring-white/15">
           <img src={logo} alt="Synaptiq logo" className="w-full h-full object-cover" />
         </div>
         {!collapsed && (
@@ -64,7 +64,7 @@ const Sidebar = ({ collapsed = false }) => {
               `flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 text-sm font-medium transition-all duration-200
                ${isActive 
                  ? 'bg-[rgba(91,140,255,0.15)] shadow-[0_2px_10px_rgba(91,140,255,0.1)] text-[#3B82F6] dark:text-white border border-transparent border-l-2 border-l-[#3B82F6] dark:border-l-brand-400 rounded-r-xl rounded-l-sm' 
-                 : 'text-[#4B5563] dark:text-[#AAB2BF] rounded-xl hover:bg-[rgba(255,255,255,0.8)] dark:hover:bg-[rgba(255,255,255,0.04)] hover:text-[#1F2937] dark:hover:text-white'}`
+                 : 'text-[#4B5563] dark:text-[#AAB2BF] rounded-xl hover:bg-[rgba(240,232,220,0.95)] dark:hover:bg-[rgba(255,255,255,0.04)] hover:text-[#1F2937] dark:hover:text-white'}`
             }
             title={collapsed ? label : undefined}
           >
@@ -75,7 +75,7 @@ const Sidebar = ({ collapsed = false }) => {
       </nav>
 
       {/* Bottom Actions */}
-      <div className={`${collapsed ? 'p-2' : 'p-4'} border-t border-white/40 space-y-3 transition-all duration-300 ease-in-out`}>
+      <div className={`${collapsed ? 'p-2' : 'p-4'} border-t border-[rgba(224,214,199,0.75)] dark:border-white/10 space-y-3 transition-all duration-300 ease-in-out`}>
         <button 
           onClick={() => navigate('/tree')}
           className="w-full h-11 flex justify-center items-center gap-2 bg-gradient-to-r from-brand-500 to-accent-purple text-white font-semibold rounded-xl text-sm shadow-glow-brand hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
@@ -87,7 +87,7 @@ const Sidebar = ({ collapsed = false }) => {
         
         <button 
           onClick={() => navigate('/tree')} // In a full app, this might open a global logger modal
-          className="w-full h-11 flex justify-center items-center gap-2 bg-white/70 hover:bg-white text-surface-700 font-semibold rounded-xl text-sm border border-white/60 shadow-sm transition-all duration-200"
+          className="w-full h-11 flex justify-center items-center gap-2 bg-[rgba(243,238,230,0.9)] hover:bg-[rgba(238,232,223,0.95)] text-surface-700 font-semibold rounded-xl text-sm border border-[rgba(220,210,194,0.85)] shadow-sm transition-all duration-200"
           title="Log Study Session"
         >
           <RiTimeLine size={18} />
@@ -97,7 +97,7 @@ const Sidebar = ({ collapsed = false }) => {
         <div className={`${collapsed ? 'pt-0' : 'pt-2'}`}>
           <button
             onClick={handleLogout}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} w-full px-3 py-2 text-sm font-medium text-surface-500 hover:text-accent-red hover:bg-white/50 rounded-xl transition-all`}
+            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} w-full px-3 py-2 text-sm font-medium text-surface-500 hover:text-accent-red hover:bg-[rgba(240,232,220,0.8)] rounded-xl transition-all`}
             title="Logout"
           >
             <RiLogoutBoxLine size={16} />

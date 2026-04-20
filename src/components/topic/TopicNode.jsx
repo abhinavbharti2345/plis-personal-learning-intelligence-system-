@@ -19,6 +19,13 @@ const STATUS_CONFIG = {
   weak:        { dot: 'status-weak',         label: 'Weak',        ring: 'border-accent-red/40' },
 };
 
+const formatStatusLabel = (value) => {
+  if (!value) return 'Not Started';
+  return String(value)
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+};
+
 const TopicNode = ({ topic, depth = 0 }) => {
   const { getChildTopics, removeTopic } = useTopics();
   const navigate = useNavigate();
@@ -30,7 +37,8 @@ const TopicNode = ({ topic, depth = 0 }) => {
   const hasChildren  = children.length > 0;
   const accuracy     = getAccuracy(topic);
   const effStatus    = getEffectiveStatus(topic);
-  const statusConf   = STATUS_CONFIG[effStatus] || STATUS_CONFIG.not_started;
+  const statusConf   = STATUS_CONFIG[effStatus]
+    || { dot: 'bg-slate-400 w-2 h-2 rounded-full', label: formatStatusLabel(effStatus), ring: 'border-slate-500/40' };
 
   const handleDelete = async (e) => {
     e.stopPropagation();
@@ -48,19 +56,19 @@ const TopicNode = ({ topic, depth = 0 }) => {
       {/* Node row */}
       <div
         className={`group flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer
-                    transition-all duration-200 hover:border-brand-500/30 hover:bg-surface-700/50
-                    ${statusConf.ring} bg-surface-800/60
+                    transition-all duration-200 hover:border-brand-500/30 hover:bg-[#ECE7DE]/90 dark:hover:bg-surface-700/50
+                    ${statusConf.ring} bg-[#F5F1E8]/85 dark:bg-surface-800/60
                     ${depth > 0 ? 'ml-6 mt-1.5' : 'mt-2'}`}
         style={{ marginLeft: depth === 0 ? 0 : depth * 20 }}
       >
         {/* Expand toggle */}
         <button
           onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-          className="w-5 h-5 flex items-center justify-center text-gray-500 hover:text-gray-300 flex-shrink-0"
+          className="w-5 h-5 flex items-center justify-center text-[#7B8596] dark:text-gray-500 hover:text-[#4B5563] dark:hover:text-gray-300 flex-shrink-0"
         >
           {hasChildren
             ? (expanded ? <RiArrowDownSLine size={16} /> : <RiArrowRightSLine size={16} />)
-            : <span className="w-1.5 h-1.5 rounded-full bg-gray-600 mx-auto" />
+            : <span className="w-1.5 h-1.5 rounded-full bg-[#9CA3AF] dark:bg-gray-600 mx-auto" />
           }
         </button>
 
@@ -72,18 +80,18 @@ const TopicNode = ({ topic, depth = 0 }) => {
           className="flex-1 min-w-0"
           onClick={() => navigate(`/topic/${topic.id}`)}
         >
-          <p className="text-sm font-medium text-gray-200 truncate group-hover:text-white">
+          <p className="text-sm font-medium text-[#374151] dark:text-gray-200 truncate group-hover:text-[#1F2937] dark:group-hover:text-white">
             {topic.title}
           </p>
           <div className="flex items-center gap-3 mt-0.5">
-            <span className="text-[11px] text-gray-500">{statusConf.label}</span>
+            <span className="text-[11px] text-[#6B7280] dark:text-gray-500">{statusConf.label}</span>
             {accuracy !== null && (
               <span className={`text-[11px] font-medium ${accuracy < 60 ? 'text-accent-red' : 'text-accent-green'}`}>
                 {accuracy}% acc
               </span>
             )}
             {topic.timeSpent > 0 && (
-              <span className="text-[11px] text-gray-600">{formatMinutes(topic.timeSpent)}</span>
+              <span className="text-[11px] text-[#6B7280] dark:text-gray-600">{formatMinutes(topic.timeSpent)}</span>
             )}
           </div>
         </div>
@@ -101,21 +109,21 @@ const TopicNode = ({ topic, depth = 0 }) => {
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => { e.stopPropagation(); setShowAddModal(true); }}
-            className="w-6 h-6 flex items-center justify-center rounded text-gray-500 hover:text-accent-cyan hover:bg-surface-600"
+            className="w-6 h-6 flex items-center justify-center rounded text-[#6B7280] dark:text-gray-500 hover:text-accent-cyan hover:bg-[#E7E0D3] dark:hover:bg-surface-600"
             title="Add child topic"
           >
             <RiAddLine size={14} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setShowEditModal(true); }}
-            className="w-6 h-6 flex items-center justify-center rounded text-gray-500 hover:text-brand-400 hover:bg-surface-600"
+            className="w-6 h-6 flex items-center justify-center rounded text-[#6B7280] dark:text-gray-500 hover:text-brand-400 hover:bg-[#E7E0D3] dark:hover:bg-surface-600"
             title="Edit topic"
           >
             <RiEditLine size={14} />
           </button>
           <button
             onClick={handleDelete}
-            className="w-6 h-6 flex items-center justify-center rounded text-gray-500 hover:text-accent-red hover:bg-surface-600"
+            className="w-6 h-6 flex items-center justify-center rounded text-[#6B7280] dark:text-gray-500 hover:text-accent-red hover:bg-[#E7E0D3] dark:hover:bg-surface-600"
             title="Delete topic"
           >
             <RiDeleteBinLine size={14} />

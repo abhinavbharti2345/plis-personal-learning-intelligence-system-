@@ -6,8 +6,8 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
-    @apply bg-[#F6F8FC] dark:bg-[#0B0F1A] text-[#1F2937] dark:text-[#E5EAF3] font-sans antialiased transition-colors duration-300;
-    background: radial-gradient(circle at top right, rgba(91,140,255,0.15), transparent), linear-gradient(135deg, #F6F8FC, #EEF2FF, #F0FDFA);
+    @apply bg-[#F3F1ED] dark:bg-[#0B0F1A] text-[#1F2937] dark:text-[#E5EAF3] font-sans antialiased transition-colors duration-300;
+    background: radial-gradient(circle at top right, rgba(91,140,255,0.12), transparent), linear-gradient(135deg, #F3F1ED, #ECE9E1, #E7ECE6);
   }
   .dark body {
     background: radial-gradient(circle at top, rgba(91,140,255,0.15), #0B0F1A 60%);
@@ -39,7 +39,7 @@
 @layer components {
   /* High-end glassmorphism card */
   .card {
-    @apply bg-[rgba(255,255,255,0.7)] dark:bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.8)] dark:border-[rgba(255,255,255,0.08)] rounded-2xl dark:shadow-none;
+    @apply bg-[rgba(248,245,239,0.82)] dark:bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(229,222,209,0.9)] dark:border-[rgba(255,255,255,0.08)] rounded-2xl dark:shadow-none;
     box-shadow: 0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 0 rgba(255,255,255,0.6);
   }
   .dark .card {
@@ -55,7 +55,7 @@
   }
 
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 bg-white/70 dark:bg-surface-700 hover:bg-white dark:hover:bg-surface-600 text-surface-700 dark:text-white font-medium rounded-xl border border-white/50 dark:border-white/10 shadow-sm transition-all duration-200 active:scale-95;
+    @apply inline-flex items-center gap-2 px-5 py-2.5 bg-[rgba(243,238,230,0.88)] dark:bg-surface-700 hover:bg-[rgba(238,232,223,0.95)] dark:hover:bg-surface-600 text-surface-700 dark:text-white font-medium rounded-xl border border-[rgba(221,212,197,0.85)] dark:border-white/10 shadow-sm transition-all duration-200 active:scale-95;
   }
 
   .btn-ghost {
@@ -63,7 +63,7 @@
   }
 
   .input {
-    @apply w-full px-4 py-2.5 bg-white/50 dark:bg-surface-700 border border-white dark:border-surface-600 rounded-xl text-surface-800 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-400 dark:focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all duration-200 bg-clip-padding backdrop-filter backdrop-blur-sm shadow-sm;
+    @apply w-full px-4 py-2.5 bg-[rgba(245,241,233,0.9)] dark:bg-surface-700 border border-[rgba(223,213,197,0.95)] dark:border-surface-600 rounded-xl text-surface-800 dark:text-white placeholder-surface-400 focus:outline-none focus:border-brand-400 dark:focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all duration-200 bg-clip-padding backdrop-filter backdrop-blur-sm shadow-sm;
   }
 
   .textarea { @apply input resize-none; }

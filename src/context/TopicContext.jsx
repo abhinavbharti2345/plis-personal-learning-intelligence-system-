@@ -5,6 +5,7 @@ import {
   subscribeToTopics,
   createTopic,
   updateTopic,
+  updateTopicPositionsBulk,
   deleteTopic,
   logPerformance,
   connectTopicsBidirectional,
@@ -64,6 +65,8 @@ export const TopicProvider = ({ children }) => {
 
   const editTopic = (topicId, data) => updateTopic(user.uid, topicId, data);
 
+  const updateTopicPositions = (updates) => updateTopicPositionsBulk(user.uid, updates);
+
   const removeTopic = (topicId) => deleteTopic(user.uid, topicId);
 
   const connectTopics = (a, b) => connectTopicsBidirectional(user.uid, a, b);
@@ -103,6 +106,7 @@ export const TopicProvider = ({ children }) => {
     ...state,
     addTopic,
     editTopic,
+    updateTopicPositions,
     removeTopic,
     connectTopics,
     disconnectTopics,

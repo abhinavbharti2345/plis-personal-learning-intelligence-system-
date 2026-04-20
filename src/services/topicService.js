@@ -5,6 +5,7 @@ import {
   arrayUnion, arrayRemove,
   getDoc,
   increment,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { softDeleteKnowledgeByTopic } from './noteService';
@@ -172,4 +173,42 @@ export const disconnectTopicsBidirectional = async (uid, a, b) => {
       lastUpdated: serverTimestamp(),
     }),
   ]);
+};
+
+/**
+ * Batch update topic positions in chunks to reduce network overhead.
+ */
+export const updateTopicPositionsBulk = async (uid, updates) => {
+  if (!uid || !Array.isArray(updates) || updates.length === 0) return;
+
+  const normalized = updates
+    .map((item) => ({
+      topicId: item?.topicId,
+      position: item?.position,
+    }))
+    .filter((item) => (
+      item.topicId
+      && Number.isFinite(item.position?.x)
+      && Number.isFinite(item.position?.y)
+    ));
+
+  if (normalized.length === 0) return;
+
+  const CHUNK_SIZE = 450;
+  for (let i = 0; i < normalized.length; i += CHUNK_SIZE) {
+    const chunk = normalized.slice(i, i + CHUNK_SIZE);
+    const batch = writeBatch(db);
+
+    chunk.forEach(({ topicId, position }) => {
+      batch.update(topicRef(uid, topicId), {
+        position: {
+          x: Math.round(position.x),
+          y: Math.round(position.y),
+        },
+        lastUpdated: serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+  }
 };

@@ -2,17 +2,22 @@
 import { useState, useMemo } from 'react';
 import { useReflections } from '../context/ReflectionContext';
 import { useTopics } from '../context/TopicContext';
+import { usePlanner } from '../context/PlannerContext';
 import { generateInsights, sentimentEmoji } from '../utils/keywordDetector';
-import { formatDate } from '../utils/dateUtils';
 import AppLayout from '../components/layout/AppLayout';
+import { analyzeReflection } from '@/services/aiService';
 import { RiQuillPenLine, RiSendPlane2Line, RiLightbulbLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
 const ReflectionPage = () => {
   const { reflections, loading, addReflection } = useReflections();
   const { topics } = useTopics();
+  const { addDailyTask, todayStr } = usePlanner();
   const [text, setText]     = useState('');
   const [saving, setSaving] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const [aiInsights, setAiInsights] = useState([]);
 
   const insights = useMemo(() => generateInsights(reflections), [reflections]);
 
@@ -32,6 +37,57 @@ const ReflectionPage = () => {
   };
 
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const toInsightList = (resultText) => {
+    if (!resultText || typeof resultText !== 'string') return [];
+
+    return resultText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.replace(/^[-*\d.)\s]+/, '').trim())
+      .filter(Boolean);
+  };
+
+  const handleAnalyze = async () => {
+    const latestReflection = text.trim() || reflections[0]?.content || '';
+    if (!latestReflection) {
+      toast.error('Write or save a reflection first');
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const result = await analyzeReflection(latestReflection);
+      setAiInsights(toInsightList(result));
+    } catch (error) {
+      setAiError(error.message || 'Failed to analyze reflection');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleApplySuggestion = async (insight) => {
+    const topicId = topics[0]?.id;
+    if (!topicId) {
+      toast.error('Create at least one topic before applying suggestion');
+      return;
+    }
+
+    try {
+      await addDailyTask({
+        topicId,
+        date: todayStr,
+        startTime: '20:00',
+        endTime: '21:00',
+        notes: insight,
+      });
+      toast.success('Suggestion added to planner');
+    } catch {
+      toast.error('Failed to add suggestion to planner');
+    }
+  };
 
   return (
     <AppLayout>
@@ -53,6 +109,30 @@ const ReflectionPage = () => {
             <p className="text-xs text-gray-500 mb-4">
               Be honest — describe what you studied, what distracted you, breakthroughs, struggles.
             </p>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={handleAnalyze}
+                disabled={aiLoading}
+              >
+                {aiLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                    Analyzing...
+                  </span>
+                ) : '✨ Analyze Reflection'}
+              </button>
+              <button
+                type="button"
+                className="btn-ghost text-xs"
+                onClick={handleAnalyze}
+                disabled={aiLoading}
+              >
+                Regenerate
+              </button>
+            </div>
+            {aiError && <p className="text-xs text-red-400 mb-3">{aiError}</p>}
             <form onSubmit={handleSubmit}>
               <textarea
                 id="reflection-input"
@@ -132,6 +212,23 @@ const ReflectionPage = () => {
               <p className="text-sm text-gray-300">{ins.text}</p>
             </div>
           ))}
+
+          {aiInsights.length > 0 && (
+            <>
+              <h3 className="text-sm font-bold text-white mt-5">AI Reflection Insights</h3>
+              {aiInsights.map((ins, i) => (
+                <div key={`ai-${i}`} className="card p-4 border-l-4 border-l-brand-500 bg-brand-500/5">
+                  <p className="text-sm text-gray-200">• {ins}</p>
+                  <button
+                    className="btn-secondary text-xs mt-3"
+                    onClick={() => handleApplySuggestion(ins)}
+                  >
+                    Apply Suggestion to Planner
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
 
           {/* Sentiment this week */}
           {reflections.length > 0 && (

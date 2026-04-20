@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import { usePlanner } from '../../context/PlannerContext';
 import { useTopics } from '../../context/TopicContext';
+import { generatePlan } from '../../services/aiService';
 import { RiAddFill, RiCheckFill, RiCloseFill } from 'react-icons/ri';
+import toast from 'react-hot-toast';
 
 const DailyPlanner = () => {
   const { todayTasks, addDailyTask, updateDailyTask, deleteDailyTask, todayStr } = usePlanner();
@@ -9,6 +11,9 @@ const DailyPlanner = () => {
   
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ topicId: '', startTime: '09:00', endTime: '10:00', notes: '' });
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [aiDrafts, setAiDrafts] = useState([]);
 
   const sortedTasks = useMemo(() => {
     return [...todayTasks].sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -26,14 +31,87 @@ const DailyPlanner = () => {
     await updateDailyTask(task.id, { completed: !task.completed });
   };
 
+  const handleGenerateDaily = async (regenerate = false) => {
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const result = await generatePlan('daily', topics, {
+        date: todayStr,
+        currentPlans: todayTasks,
+      });
+      setAiDrafts(Array.isArray(result?.items) ? result.items : []);
+    } catch (error) {
+      setAiError(error.message || 'Failed to generate daily plan.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const updateDraftField = (index, field, value) => {
+    setAiDrafts((prev) => prev.map((draft, i) => i === index ? { ...draft, [field]: value } : draft));
+  };
+
+  const handleApplyDailyDrafts = async () => {
+    if (!aiDrafts.length) return;
+    try {
+      for (const item of aiDrafts) {
+        const topicId = topics.some((t) => t.id === item.topicId) ? item.topicId : topics[0]?.id;
+        if (!topicId) continue;
+        await addDailyTask({
+          topicId,
+          date: todayStr,
+          startTime: /^\d{2}:\d{2}$/.test(item.startTime || '') ? item.startTime : '09:00',
+          endTime: /^\d{2}:\d{2}$/.test(item.endTime || '') ? item.endTime : '10:00',
+          notes: item.notes || item.title || 'AI generated task',
+        });
+      }
+      toast.success('AI daily plan applied');
+      setAiDrafts([]);
+    } catch {
+      toast.error('Failed to apply AI daily plan');
+    }
+  };
+
   return (
     <div className="card p-6 min-h-[500px]">
       <div className="flex justify-between items-center mb-8">
         <h2 className="font-bold text-xl text-[#1F2937] dark:text-white">Today's Schedule</h2>
-        <button onClick={() => setShowForm(!showForm)} className={`btn-primary px-3 py-1.5 text-xs ${showForm ? 'bg-red-500 hover:bg-red-600' : ''}`}>
-          {showForm ? 'Cancel' : <><RiAddFill /> Add Task</>}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => handleGenerateDaily(false)} className="btn-secondary px-3 py-1.5 text-xs" disabled={aiLoading}>
+            {aiLoading ? 'Generating...' : 'Generate Plan'}
+          </button>
+          <button onClick={() => handleGenerateDaily(true)} className="btn-ghost px-3 py-1.5 text-xs" disabled={aiLoading}>Regenerate</button>
+          <button onClick={() => setShowForm(!showForm)} className={`btn-primary px-3 py-1.5 text-xs ${showForm ? 'bg-red-500 hover:bg-red-600' : ''}`}>
+            {showForm ? 'Cancel' : <><RiAddFill /> Add Task</>}
+          </button>
+        </div>
       </div>
+
+      {aiError && <p className="text-xs text-red-400 mb-3">{aiError}</p>}
+
+      {aiDrafts.length > 0 && (
+        <div className="mb-6 rounded-xl border border-white/10 bg-white/40 dark:bg-surface-800/40 p-4">
+          <p className="text-sm font-bold text-[#1F2937] dark:text-white mb-3">AI Draft Plan</p>
+          <div className="space-y-2">
+            {aiDrafts.map((draft, idx) => (
+              <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <select
+                  className="input text-xs"
+                  value={draft.topicId || ''}
+                  onChange={(e) => updateDraftField(idx, 'topicId', e.target.value)}
+                >
+                  <option value="">Select topic</option>
+                  {topics.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                </select>
+                <input className="input text-xs" value={draft.startTime || '09:00'} onChange={(e) => updateDraftField(idx, 'startTime', e.target.value)} />
+                <input className="input text-xs" value={draft.endTime || '10:00'} onChange={(e) => updateDraftField(idx, 'endTime', e.target.value)} />
+                <input className="input text-xs" value={draft.notes || draft.title || ''} onChange={(e) => updateDraftField(idx, 'notes', e.target.value)} />
+              </div>
+            ))}
+          </div>
+          <button className="btn-primary text-xs mt-3" onClick={handleApplyDailyDrafts}>Apply Plan</button>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="mb-8 bg-[rgba(255,255,255,0.4)] dark:bg-[rgba(255,255,255,0.02)] p-5 rounded-2xl border border-[rgba(255,255,255,0.8)] dark:border-white/10 shadow-sm animate-fade-in">

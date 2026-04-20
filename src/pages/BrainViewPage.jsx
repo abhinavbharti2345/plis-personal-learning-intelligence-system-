@@ -1,16 +1,19 @@
-// BrainViewPage.jsx — Interactive 2D knowledge graph using React Flow
-import { useMemo, useCallback } from 'react';
+// BrainViewPage.jsx — Obsidian-style interactive knowledge graph
+import { memo, useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTopics } from '../context/TopicContext';
 import { getEffectiveStatus } from '../utils/clarityEngine';
 import AppLayout from '../components/layout/AppLayout';
+import Modal from '../components/ui/Modal';
 import ReactFlow, {
   Background, Controls, MiniMap,
   useNodesState, useEdgesState,
-  MarkerType,
+  MarkerType, Handle, Position,
+  ConnectionLineType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { RiBrainLine } from 'react-icons/ri';
+import toast from 'react-hot-toast';
 
 // ── Status → color mapping ──────────────────────────────────────────────────
 const STATUS_COLORS = {
@@ -20,117 +23,307 @@ const STATUS_COLORS = {
   weak:        { bg: '#ef4444', border: '#dc2626', text: '#fef2f2' },
 };
 
-// ── Custom node style builder ────────────────────────────────────────────────
-const buildNode = (topic, index, totalInLevel) => {
-  const status = getEffectiveStatus(topic);
-  const colors = STATUS_COLORS[status] || STATUS_COLORS.not_started;
-  const angle  = (index / Math.max(totalInLevel, 1)) * 2 * Math.PI;
-  const radius = topic.parentId ? 180 : 80;
-  const cx     = radius * Math.cos(angle) + (topic.parentId ? 400 : 400);
-  const cy     = radius * Math.sin(angle) + (topic.parentId ? 300 : 300);
+const STATUS_OPTIONS = [
+  { value: 'not_started', label: 'Not Started' },
+  { value: 'learning', label: 'Learning' },
+  { value: 'weak', label: 'Weak' },
+  { value: 'strong', label: 'Strong' },
+];
 
+const GraphNode = memo(({ data, selected }) => {
+  const status = data.status || 'not_started';
+  const colors = STATUS_COLORS[status] || STATUS_COLORS.not_started;
+  const isDimmed = Boolean(data.isDimmed);
+
+  return (
+    <div
+      className="group relative"
+      style={{
+        background: colors.bg,
+        border: `2px solid ${colors.border}`,
+        color: colors.text,
+        borderRadius: '12px',
+        padding: '10px 16px',
+        fontSize: '12px',
+        fontWeight: 600,
+        fontFamily: 'Inter, sans-serif',
+        minWidth: '130px',
+        maxWidth: '200px',
+        textAlign: 'center',
+        opacity: isDimmed ? 0.25 : 1,
+        boxShadow: selected
+          ? `0 0 0 2px ${colors.border}, 0 0 32px ${colors.bg}80`
+          : `0 4px 20px ${colors.bg}40`,
+        transition: 'opacity 140ms ease, box-shadow 140ms ease, transform 140ms ease',
+      }}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!w-3 !h-3 !bg-white/70 !border !border-white/30"
+        style={{ opacity: 0.5 }}
+      />
+
+      <div className="truncate">{data.label}</div>
+
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!w-3 !h-3 !bg-white !border !border-white/40"
+        style={{ opacity: 0.5 }}
+      />
+    </div>
+  );
+});
+
+const nodeTypes = { graphNode: GraphNode };
+
+const GRID_WIDTH = 6;
+const GRID_X_GAP = 220;
+const GRID_Y_GAP = 140;
+
+const fallbackPosition = (index) => {
+  const row = Math.floor(index / GRID_WIDTH);
+  const col = index % GRID_WIDTH;
   return {
-    id:   topic.id,
-    type: 'default',
-    position: { x: cx + index * 60, y: cy + (topic.parentId ? 100 : 0) },
-    data:  { label: topic.title },
-    style: {
-      background:   colors.bg,
-      border:       `2px solid ${colors.border}`,
-      color:        colors.text,
-      borderRadius: '12px',
-      padding:      '10px 14px',
-      fontSize:     '12px',
-      fontWeight:   600,
-      fontFamily:   'Inter, sans-serif',
-      boxShadow:    `0 4px 24px ${colors.bg}40`,
-      minWidth:     '120px',
-      textAlign:    'center',
-      cursor:       'pointer',
-    },
+    x: col * GRID_X_GAP + 80,
+    y: row * GRID_Y_GAP + 80,
   };
 };
 
 const BrainViewPage = () => {
-  const { topics } = useTopics();
-  const navigate   = useNavigate();
+  const { topics, editTopic, connectTopics, disconnectTopics, getTopicById } = useTopics();
+  const navigate = useNavigate();
 
-  // Build nodes and edges from topics
-  const { initialNodes, initialEdges } = useMemo(() => {
-    // Position nodes using a simple layered layout
-    const nodeMap = {};
-    const levelMap = {};
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [connectingFrom, setConnectingFrom] = useState(null);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [reactFlowInstance, setReactFlowInstance] = useState(null);
+  const [statusEditorTopicId, setStatusEditorTopicId] = useState(null);
 
-    // Compute depth
-    const getDepth = (topic, memo = {}) => {
-      if (memo[topic.id] !== undefined) return memo[topic.id];
-      if (!topic.parentId) { memo[topic.id] = 0; return 0; }
-      const parent = topics.find((t) => t.id === topic.parentId);
-      if (!parent) { memo[topic.id] = 0; return 0; }
-      memo[topic.id] = getDepth(parent, memo) + 1;
-      return memo[topic.id];
-    };
+  const saveTimersRef = useRef({});
+  const clickTimerRef = useRef(null);
 
-    topics.forEach((t) => {
-      const depth = getDepth(t, {});
-      if (!levelMap[depth]) levelMap[depth] = [];
-      levelMap[depth].push(t);
+  const topicMap = useMemo(() => {
+    const map = new Map();
+    topics.forEach((topic) => map.set(topic.id, topic));
+    return map;
+  }, [topics]);
+
+  const neighborSet = useMemo(() => {
+    if (!selectedNodeId) return null;
+    const selected = topicMap.get(selectedNodeId);
+    const neighbors = new Set([selectedNodeId]);
+    (selected?.connections || []).forEach((id) => neighbors.add(id));
+    return neighbors;
+  }, [selectedNodeId, topicMap]);
+
+  const builtNodes = useMemo(() => {
+    return topics.map((topic, index) => {
+      const status = getEffectiveStatus(topic);
+      const position = topic.position || fallbackPosition(index);
+      const isDimmed = neighborSet ? !neighborSet.has(topic.id) : false;
+
+      return {
+        id: topic.id,
+        type: 'graphNode',
+        position,
+        draggable: true,
+        data: {
+          label: topic.title,
+          status,
+          isDimmed,
+        },
+      };
     });
+  }, [topics, neighborSet]);
 
-    const nodes = [];
-    Object.entries(levelMap).forEach(([level, levelTopics]) => {
-      const y = Number(level) * 200 + 60;
-      const xStep = Math.max(700 / Math.max(levelTopics.length, 1), 160);
-      const startX = (700 - xStep * (levelTopics.length - 1)) / 2;
+  const builtEdges = useMemo(() => {
+    const seen = new Set();
+    const edges = [];
 
-      levelTopics.forEach((topic, i) => {
-        const status = getEffectiveStatus(topic);
-        const colors = STATUS_COLORS[status] || STATUS_COLORS.not_started;
-        nodes.push({
-          id: topic.id,
-          position: { x: startX + i * xStep, y },
-          data: { label: topic.title },
+    topics.forEach((topic) => {
+      const targets = topic.connections?.length
+        ? topic.connections
+        : topic.parentId ? [topic.parentId] : [];
+
+      targets.forEach((targetId) => {
+        if (!targetId || !topicMap.has(targetId) || topic.id === targetId) return;
+        const [source, target] = topic.id < targetId
+          ? [topic.id, targetId]
+          : [targetId, topic.id];
+        const edgeKey = `${source}::${target}`;
+        if (seen.has(edgeKey)) return;
+        seen.add(edgeKey);
+
+        const isDimmed = neighborSet
+          ? !(neighborSet.has(source) && neighborSet.has(target))
+          : false;
+
+        edges.push({
+          id: `e-${source}-${target}`,
+          source,
+          target,
+          type: 'smoothstep',
+          animated: false,
           style: {
-            background:   colors.bg,
-            border:       `2px solid ${colors.border}`,
-            color:        colors.text,
-            borderRadius: '12px',
-            padding:      '10px 16px',
-            fontSize:     '12px',
-            fontWeight:   600,
-            fontFamily:   'Inter, sans-serif',
-            boxShadow:    `0 4px 20px ${colors.bg}40`,
-            minWidth:     '130px',
-            maxWidth:     '180px',
-            textAlign:    'center',
-            cursor:       'pointer',
+            stroke: isDimmed ? '#374151' : '#94a3b8',
+            strokeWidth: isDimmed ? 1 : 1.8,
+            opacity: isDimmed ? 0.2 : 0.9,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: isDimmed ? '#374151' : '#94a3b8',
           },
         });
-        nodeMap[topic.id] = true;
       });
     });
 
-    const edges = topics
-      .filter((t) => t.parentId && nodeMap[t.parentId])
-      .map((t) => ({
-        id:     `e-${t.parentId}-${t.id}`,
-        source: t.parentId,
-        target: t.id,
-        type:   'smoothstep',
-        animated: false,
-        style:  { stroke: '#4b5563', strokeWidth: 1.5 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#4b5563' },
-      }));
+    return edges;
+  }, [topics, topicMap, neighborSet]);
 
-    return { initialNodes: nodes, initialEdges: edges };
-  }, [topics]);
+  const [nodes, setNodes, onNodesChange] = useNodesState(builtNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(builtEdges);
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  useEffect(() => {
+    setNodes(builtNodes);
+  }, [builtNodes, setNodes]);
+
+  useEffect(() => {
+    setEdges(builtEdges);
+  }, [builtEdges, setEdges]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.code === 'Space') setIsSpacePressed(true);
+    };
+    const onKeyUp = (e) => {
+      if (e.code === 'Space') setIsSpacePressed(false);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+      }
+    };
+  }, []);
 
   const onNodeClick = useCallback((_, node) => {
-    navigate(`/topic/${node.id}`);
+    setSelectedNodeId(node.id);
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+    }
+
+    clickTimerRef.current = setTimeout(() => {
+      navigate(`/topic/${node.id}`);
+    }, 220);
   }, [navigate]);
+
+  const onNodeDoubleClick = useCallback((event, node) => {
+    event.preventDefault();
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+    setSelectedNodeId(node.id);
+    setStatusEditorTopicId(node.id);
+  }, []);
+
+  const onNodeDragStop = useCallback(async (_, node) => {
+    const { id, position } = node;
+
+    if (saveTimersRef.current[id]) {
+      clearTimeout(saveTimersRef.current[id]);
+    }
+
+    saveTimersRef.current[id] = setTimeout(async () => {
+      try {
+        await editTopic(id, {
+          position: {
+            x: Math.round(position.x),
+            y: Math.round(position.y),
+          },
+        });
+      } catch {
+        // Ignore save failures for drag persistence to keep interaction smooth.
+      }
+    }, 220);
+  }, [editTopic]);
+
+  const onConnect = useCallback(async (params) => {
+    if (!params?.source || !params?.target || params.source === params.target) return;
+    try {
+      await connectTopics(params.source, params.target);
+    } catch {
+      // Keep UI responsive if Firestore write fails.
+    } finally {
+      setConnectingFrom(null);
+    }
+  }, [connectTopics]);
+
+  const onConnectStart = useCallback((_, info) => {
+    setConnectingFrom(info?.nodeId || null);
+  }, []);
+
+  const onConnectEnd = useCallback(() => {
+    setConnectingFrom(null);
+  }, []);
+
+  const onEdgeClick = useCallback(async (_, edge) => {
+    if (!edge?.source || !edge?.target) return;
+    const ok = window.confirm('Remove this connection?');
+    if (!ok) return;
+    try {
+      await disconnectTopics(edge.source, edge.target);
+    } catch {
+      // Keep interaction non-blocking if delete fails.
+    }
+  }, [disconnectTopics]);
+
+  const handleSearchFocus = useCallback(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) {
+      reactFlowInstance?.fitView({ padding: 0.2, duration: 500 });
+      return;
+    }
+
+    const match = topics.find((topic) => topic.title.toLowerCase().includes(q));
+    if (!match) return;
+
+    const currentNode = nodes.find((n) => n.id === match.id);
+    if (!currentNode) return;
+
+    setSelectedNodeId(match.id);
+    reactFlowInstance?.setCenter(
+      currentNode.position.x + 80,
+      currentNode.position.y + 20,
+      { zoom: 1.35, duration: 550 }
+    );
+  }, [search, topics, nodes, reactFlowInstance]);
+
+  const handleUpdateStatus = useCallback(async (newStatus) => {
+    if (!statusEditorTopicId) return;
+    try {
+      await editTopic(statusEditorTopicId, { status: newStatus });
+      toast.success(`Status set to ${newStatus.replace('_', ' ')}`);
+      setStatusEditorTopicId(null);
+    } catch {
+      toast.error('Failed to update status');
+    }
+  }, [editTopic, statusEditorTopicId]);
+
+  const connectingTopic = connectingFrom ? getTopicById(connectingFrom) : null;
+  const statusEditorTopic = statusEditorTopicId ? getTopicById(statusEditorTopicId) : null;
 
   return (
     <AppLayout>
@@ -142,8 +335,18 @@ const BrainViewPage = () => {
             Brain View
           </h1>
           <p className="text-surface-500 dark:text-[#C9D1D9] text-sm mt-1 opacity-90">
-            Your knowledge graph — click any node to open that topic
+            Drag nodes, connect ideas, and explore your knowledge graph
           </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search topic..."
+            className="input !h-10 !text-sm w-56"
+          />
+          <button onClick={handleSearchFocus} className="btn-secondary">Focus</button>
         </div>
       </div>
 
@@ -155,6 +358,10 @@ const BrainViewPage = () => {
             {status.replace('_', ' ')}
           </span>
         ))}
+        <span className="text-surface-500 dark:text-[#94A3B8]">Drag from node handle to create connection</span>
+        {connectingFrom && (
+          <span className="text-accent-cyan">Connecting from: {connectingTopic?.title || connectingFrom}</span>
+        )}
       </div>
 
       {/* Graph canvas */}
@@ -173,10 +380,23 @@ const BrainViewPage = () => {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
+            onNodeDoubleClick={onNodeDoubleClick}
+            onNodeDragStop={onNodeDragStop}
+            onConnect={onConnect}
+            onConnectStart={onConnectStart}
+            onConnectEnd={onConnectEnd}
+            onEdgeClick={onEdgeClick}
+            onInit={setReactFlowInstance}
+            nodeTypes={nodeTypes}
             fitView
             fitViewOptions={{ padding: 0.2 }}
-            minZoom={0.3}
-            maxZoom={2}
+            minZoom={0.2}
+            maxZoom={2.5}
+            panOnDrag={isSpacePressed ? [0, 1] : [1]}
+            selectionOnDrag={false}
+            nodesConnectable
+            connectionLineType={ConnectionLineType.Straight}
+            connectionLineStyle={{ stroke: '#e5e7eb', strokeDasharray: '4 4', strokeWidth: 1.5 }}
             attributionPosition="bottom-right"
           >
             <Background color="#1a1f38" gap={24} size={1} />
@@ -188,17 +408,53 @@ const BrainViewPage = () => {
               }}
             />
             <MiniMap
-              nodeColor={(node) => node.style?.background || '#374151'}
+              nodeColor={(node) => {
+                const status = node.data?.status || 'not_started';
+                return (STATUS_COLORS[status] || STATUS_COLORS.not_started).bg;
+              }}
               style={{
                 background: '#13162a',
                 border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '12px',
               }}
               maskColor="rgba(13,15,26,0.7)"
+              pannable
+              zoomable
             />
           </ReactFlow>
         )}
       </div>
+
+      <Modal
+        isOpen={Boolean(statusEditorTopic)}
+        onClose={() => setStatusEditorTopicId(null)}
+        title={statusEditorTopic ? `Change Status: ${statusEditorTopic.title}` : 'Change Status'}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-400">Choose a new status for this topic.</p>
+          <div className="grid grid-cols-2 gap-2">
+            {STATUS_OPTIONS.map((status) => {
+              const isActive = statusEditorTopic?.status === status.value;
+              const color = STATUS_COLORS[status.value] || STATUS_COLORS.not_started;
+              return (
+                <button
+                  key={status.value}
+                  type="button"
+                  onClick={() => handleUpdateStatus(status.value)}
+                  className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                    isActive ? 'border-white/50 text-white' : 'border-white/10 text-gray-300 hover:border-white/30'
+                  }`}
+                  style={{
+                    background: isActive ? `${color.bg}66` : `${color.bg}22`,
+                  }}
+                >
+                  {status.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Modal>
     </AppLayout>
   );
 };

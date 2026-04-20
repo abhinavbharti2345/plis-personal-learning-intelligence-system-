@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function hasUserFieldOwner() {
+      return isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    function existingUserFieldOwner() {
+      return isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Existing per-user topic tree.
+    match /users/{uid}/topics/{topicId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Legacy notes path for backward compatibility while migrations complete.
+    match /users/{uid}/notes/{topicId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // New normalized notes collection.
+    match /notes/{noteId} {
+      allow create: if hasUserFieldOwner();
+      allow read, update, delete: if existingUserFieldOwner();
+    }
+
+    // New normalized files collection.
+    match /files/{fileId} {
+      allow create: if hasUserFieldOwner();
+      allow read, update, delete: if existingUserFieldOwner();
+    }
+
+    // AI history/cache introduced earlier in this project.
+    match /users/{uid}/aiHistory/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/aiCache/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+  }
+}

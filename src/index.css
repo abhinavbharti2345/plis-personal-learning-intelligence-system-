@@ -6,11 +6,27 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
-    @apply bg-[#F6F8FC] dark:bg-[#0B0F1A] text-[#1F2937] dark:text-[#C9D1D9] font-sans antialiased transition-colors duration-300;
+    @apply bg-[#F6F8FC] dark:bg-[#0B0F1A] text-[#1F2937] dark:text-[#E5EAF3] font-sans antialiased transition-colors duration-300;
     background: radial-gradient(circle at top right, rgba(91,140,255,0.15), transparent), linear-gradient(135deg, #F6F8FC, #EEF2FF, #F0FDFA);
   }
   .dark body {
     background: radial-gradient(circle at top, rgba(91,140,255,0.15), #0B0F1A 60%);
+  }
+
+  /* Dark mode readability boost for commonly used muted text utilities. */
+  .dark .text-gray-600,
+  .dark .text-surface-600 {
+    color: #cbd5e1;
+  }
+
+  .dark .text-gray-500,
+  .dark .text-surface-500 {
+    color: #d1d9e6;
+  }
+
+  .dark .text-gray-400,
+  .dark .text-surface-400 {
+    color: #dde5f2;
   }
   
   ::-webkit-scrollbar { width: 6px; height: 6px; }

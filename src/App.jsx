@@ -17,6 +17,7 @@ import BrainViewPage   from './pages/BrainViewPage';
 import PlannerPage     from './pages/PlannerPage';
 import ReflectionPage  from './pages/ReflectionPage';
 import DiscussPage     from './pages/DiscussPage';
+import NotesPage       from './pages/NotesPage';
 import ProfilePage     from './pages/ProfilePage';
 import SettingsPage    from './pages/SettingsPage';
 
@@ -54,6 +55,7 @@ const App = () => {
                   <Route path="/topic/:id" element={<ProtectedRoute><TopicDetailPage /></ProtectedRoute>} />
                   <Route path="/brain"     element={<ProtectedRoute><BrainViewPage /></ProtectedRoute>} />
                   <Route path="/planner"   element={<ProtectedRoute><PlannerPage /></ProtectedRoute>} />
+                  <Route path="/notes"     element={<ProtectedRoute><NotesPage /></ProtectedRoute>} />
                   <Route path="/reflection" element={<ProtectedRoute><ReflectionPage /></ProtectedRoute>} />
                   <Route path="/discuss"   element={<ProtectedRoute><DiscussPage /></ProtectedRoute>} />
                   <Route path="/profile"   element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

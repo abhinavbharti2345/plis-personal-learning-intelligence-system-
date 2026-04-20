@@ -2,7 +2,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTopics } from '../../context/TopicContext';
 import { subscribeToWeekly, addWeeklyPlan, updateWeeklyPlan, deleteWeeklyPlan } from '../../services/plannerService';
+import { generatePlan } from '../../services/aiService';
 import { RiCloseFill } from 'react-icons/ri';
+import toast from 'react-hot-toast';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -12,6 +14,9 @@ const WeeklyPlanner = () => {
   
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [aiDrafts, setAiDrafts] = useState([]);
   
   // Current Week Start (Monday) String
   const currentWeekStart = useMemo(() => {
@@ -44,8 +49,68 @@ const WeeklyPlanner = () => {
     await deleteWeeklyPlan(user.uid, planId);
   };
 
+  const handleGenerateWeekly = async (regenerate = false) => {
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const result = await generatePlan('weekly', topics, {
+        weekStartDate: currentWeekStart,
+        currentPlans: plans,
+      });
+      setAiDrafts(Array.isArray(result?.items) ? result.items : []);
+    } catch (error) {
+      setAiError(error.message || 'Failed to generate weekly plan.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyWeeklyDrafts = async () => {
+    if (!aiDrafts.length || !user) return;
+    try {
+      for (const draft of aiDrafts) {
+        const day = DAYS.includes(draft.day) ? draft.day : 'Monday';
+        const topicId = topics.some((t) => t.id === draft.topicId) ? draft.topicId : topics[0]?.id;
+        if (!topicId) continue;
+        await addWeeklyPlan(user.uid, {
+          weekStartDate: currentWeekStart,
+          day,
+          topicId,
+          completed: false,
+        });
+      }
+      setAiDrafts([]);
+      toast.success('AI weekly plan applied');
+    } catch {
+      toast.error('Failed to apply AI weekly plan');
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 xl:gap-6 animate-fade-in">
+    <div className="space-y-4">
+      <div className="card p-4 flex flex-wrap items-center gap-2">
+        <button className="btn-secondary text-xs" onClick={() => handleGenerateWeekly(false)} disabled={aiLoading}>
+          {aiLoading ? 'Generating...' : 'Generate Plan'}
+        </button>
+        <button className="btn-ghost text-xs" onClick={() => handleGenerateWeekly(true)} disabled={aiLoading}>Regenerate</button>
+        {aiDrafts.length > 0 && <button className="btn-primary text-xs" onClick={applyWeeklyDrafts}>Apply Plan</button>}
+        {aiError && <span className="text-xs text-red-400">{aiError}</span>}
+      </div>
+
+      {aiDrafts.length > 0 && (
+        <div className="card p-4">
+          <p className="text-sm font-bold text-white mb-2">AI Weekly Draft</p>
+          <div className="space-y-2">
+            {aiDrafts.map((draft, idx) => (
+              <div key={idx} className="text-xs text-[#4B5563] dark:text-[#C9D1D9]">
+                {draft.day || 'Monday'}: {draft.notes || 'Study task'}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 xl:gap-6 animate-fade-in">
       {DAYS.map((day) => {
         const dayPlans = plans.filter(p => p.day === day);
         return (
@@ -88,6 +153,7 @@ const WeeklyPlanner = () => {
           </div>
         );
       })}
+    </div>
     </div>
   );
 };

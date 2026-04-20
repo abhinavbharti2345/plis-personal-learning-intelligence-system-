@@ -2,13 +2,18 @@ import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { subscribeToMonthly, addMonthlyGoal, updateMonthlyGoal, deleteMonthlyGoal } from '../../services/plannerService';
 import { useTopics } from '../../context/TopicContext';
+import { generatePlan } from '../../services/aiService';
 import { RiAddFill, RiCloseFill, RiFlag2Fill } from 'react-icons/ri';
+import toast from 'react-hot-toast';
 
 const MonthlyPlanner = () => {
   const { user } = useAuth();
   const { topics } = useTopics();
   
   const [goals, setGoals] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [aiDrafts, setAiDrafts] = useState([]);
   
   const currentMonth = useMemo(() => {
     const d = new Date();
@@ -30,13 +35,67 @@ const MonthlyPlanner = () => {
     setForm({ title: '', topicId: '' });
   };
 
+  const handleGenerateMonthly = async (regenerate = false) => {
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const result = await generatePlan('monthly', topics, {
+        month: currentMonth,
+        currentPlans: goals,
+      });
+      setAiDrafts(Array.isArray(result?.items) ? result.items : []);
+    } catch (error) {
+      setAiError(error.message || 'Failed to generate monthly plan.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyMonthlyDrafts = async () => {
+    if (!aiDrafts.length || !user) return;
+    try {
+      for (const draft of aiDrafts) {
+        const topicId = topics.some((t) => t.id === draft.topicId) ? draft.topicId : null;
+        await addMonthlyGoal(user.uid, {
+          month: currentMonth,
+          title: draft.title || draft.target || 'AI Monthly Goal',
+          topicId,
+        });
+      }
+      setAiDrafts([]);
+      toast.success('AI monthly plan applied');
+    } catch {
+      toast.error('Failed to apply AI monthly plan');
+    }
+  };
+
   return (
     <div className="card p-6 min-h-[500px]">
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-bold text-xl text-[#1F2937] dark:text-white flex items-center gap-2">
            <RiFlag2Fill className="text-brand-500" /> Monthly Goals
         </h2>
+        <div className="flex items-center gap-2">
+          <button className="btn-secondary text-xs" onClick={() => handleGenerateMonthly(false)} disabled={aiLoading}>
+            {aiLoading ? 'Generating...' : 'Generate Plan'}
+          </button>
+          <button className="btn-ghost text-xs" onClick={() => handleGenerateMonthly(true)} disabled={aiLoading}>Regenerate</button>
+          {aiDrafts.length > 0 && <button className="btn-primary text-xs" onClick={applyMonthlyDrafts}>Apply Plan</button>}
+        </div>
       </div>
+
+      {aiError && <p className="text-xs text-red-400 mb-3">{aiError}</p>}
+
+      {aiDrafts.length > 0 && (
+        <div className="card p-4 mb-4">
+          <p className="text-sm font-bold text-white mb-2">AI Monthly Draft</p>
+          <ul className="list-disc pl-5 text-sm text-[#4B5563] dark:text-[#C9D1D9] space-y-1">
+            {aiDrafts.map((draft, idx) => (
+              <li key={idx}>{draft.title || draft.target || 'Monthly goal'}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <form onSubmit={handleAdd} className="flex gap-4 mb-8 p-4 rounded-xl border border-[rgba(255,255,255,0.8)] dark:border-white/10 bg-[rgba(255,255,255,0.4)] dark:bg-[rgba(255,255,255,0.02)]">
         <input 

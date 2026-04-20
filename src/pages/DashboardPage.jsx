@@ -1,11 +1,12 @@
 // DashboardPage.jsx — Redesigned layout with Premium Glassmorphism
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTopics } from '../context/TopicContext';
 import { usePlanner } from '../context/PlannerContext';
 import { runClarityEngine, computeStats, getAccuracy } from '../utils/clarityEngine';
 import { formatMinutes } from '../utils/dateUtils';
+import { generateStudyPlan } from '@/services/aiService';
 import StatCard from '../components/ui/StatCard';
 import SuggestionCard from '../components/ui/SuggestionCard';
 import AppLayout from '../components/layout/AppLayout';
@@ -29,6 +30,10 @@ const DashboardPage = () => {
   const { topics, loading } = useTopics();
   const { todayTasks } = usePlanner();
   const navigate = useNavigate();
+
+  const [aiPlan, setAiPlan] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   const stats       = useMemo(() => computeStats(topics), [topics]);
   const suggestions = useMemo(() => runClarityEngine(topics), [topics]);
@@ -90,6 +95,25 @@ const DashboardPage = () => {
 
   const isNewUser = topics.length === 0;
 
+  const handleGeneratePlan = async (regenerate = false) => {
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const context = {
+        userId: user?.uid || 'anonymous',
+        date: new Date().toISOString().split('T')[0],
+        currentPlans: todayTasks,
+        regenerateSeed: regenerate ? Date.now() : null,
+      };
+      const result = await generateStudyPlan(topics, context);
+      setAiPlan(result);
+    } catch (error) {
+      setAiError(error.message || 'Failed to generate AI study coach plan.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <AppLayout>
       {/* HERO ONBOARDING CARD - only for new users */}
@@ -123,6 +147,48 @@ const DashboardPage = () => {
 
       {/* 2. WHAT TO DO NEXT */}
       <h2 className="section-title mb-4">What to do next</h2>
+
+      <div className="card p-5 mb-6 border border-white/50 dark:border-white/10">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-[#1F2937] dark:text-white">✨ AI Study Coach</p>
+            <p className="text-xs text-[#4B5563] dark:text-[#C9D1D9] mt-1">Generate a focused plan for today using your topics and planner context.</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleGeneratePlan(false)}
+              className="btn-secondary text-xs"
+              disabled={aiLoading}
+            >
+              {aiLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                  Generating...
+                </span>
+              ) : 'Generate Plan'}
+            </button>
+            <button
+              onClick={() => handleGeneratePlan(true)}
+              className="btn-ghost text-xs"
+              disabled={aiLoading}
+            >
+              Regenerate
+            </button>
+          </div>
+        </div>
+
+        {aiError && <p className="text-xs text-red-400 mt-3">{aiError}</p>}
+
+        {aiPlan && (
+          <div className="mt-4">
+            <p className="text-xs font-semibold text-[#4B5563] dark:text-[#C9D1D9] mb-2">Generated Plan</p>
+            <pre className="whitespace-pre-wrap text-sm leading-6 rounded-xl border border-white/20 dark:border-white/10 bg-white/40 dark:bg-surface-800/40 p-3 text-[#1F2937] dark:text-white font-sans">
+              {aiPlan}
+            </pre>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-10">
         {finalSuggestions.length === 0 ? (
           isNewUser ? (

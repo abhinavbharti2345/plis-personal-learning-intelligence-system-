@@ -7,6 +7,8 @@ import {
   updateTopic,
   deleteTopic,
   logPerformance,
+  connectTopicsBidirectional,
+  disconnectTopicsBidirectional,
 } from '../services/topicService';
 import { getStudyStreak, logStudyActivity } from '../services/activityService';
 
@@ -64,6 +66,10 @@ export const TopicProvider = ({ children }) => {
 
   const removeTopic = (topicId) => deleteTopic(user.uid, topicId);
 
+  const connectTopics = (a, b) => connectTopicsBidirectional(user.uid, a, b);
+
+  const disconnectTopics = (a, b) => disconnectTopicsBidirectional(user.uid, a, b);
+
   const logSession = async (topicId, sessionData) => {
     await logPerformance(user.uid, topicId, sessionData);
     const { currentStreak } = await logStudyActivity(user.uid);
@@ -72,21 +78,40 @@ export const TopicProvider = ({ children }) => {
 
   const getTopicById = (id) => state.topics.find((t) => t.id === id);
 
+  const getTopicMap = () => {
+    const map = new Map();
+    state.topics.forEach((topic) => map.set(topic.id, topic));
+    return map;
+  };
+
   const getChildTopics = (parentId) =>
     state.topics.filter((t) => t.parentId === parentId);
 
   const getRootTopics = () =>
     state.topics.filter((t) => !t.parentId);
 
+  const getConnectedTopics = (topicId) => {
+    const topic = getTopicById(topicId);
+    if (!topic?.connections?.length) return [];
+    const map = getTopicMap();
+    return topic.connections
+      .map((id) => map.get(id))
+      .filter(Boolean);
+  };
+
   const value = {
     ...state,
     addTopic,
     editTopic,
     removeTopic,
+    connectTopics,
+    disconnectTopics,
     logSession,
     getTopicById,
+    getTopicMap,
     getChildTopics,
     getRootTopics,
+    getConnectedTopics,
   };
 
   return <TopicContext.Provider value={value}>{children}</TopicContext.Provider>;
